@@ -9,13 +9,14 @@ Before writing any code, the AI must read these files in this exact order:
 1. `README-FIRST.md`
 2. `planning/REPOSITORY_SKELETON.md`
 3. `planning/AI_EXECUTION_RULES.md`
-4. `planning/IMPLEMENTATION_PACKETS.md`
-5. `planning/DEFINITION_OF_DONE.md`
-6. `planning/REVIEWER_CHECKLIST.md`
-7. `planning/GLOSSARY.md`
-8. `planning/HANDOFF_PROTOCOL.md`
-9. `planning/COMMIT_PROTOCOL.md`
-10. All files in `docs/` in numeric order from 01 to 08
+4. `planning/BRANCHING_AND_VERSIONING_PROTOCOL.md`
+5. `planning/IMPLEMENTATION_PACKETS.md`
+6. `planning/DEFINITION_OF_DONE.md`
+7. `planning/REVIEWER_CHECKLIST.md`
+8. `planning/GLOSSARY.md`
+9. `planning/HANDOFF_PROTOCOL.md`
+10. `planning/COMMIT_PROTOCOL.md`
+11. All files in `docs/` in numeric order from 01 to 08
 
 ## Rule 2 — No guessing
 
