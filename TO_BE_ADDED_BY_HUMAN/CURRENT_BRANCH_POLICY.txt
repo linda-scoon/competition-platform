@@ -1,0 +1,5 @@
+Current policy:
+- direct push to main branch is allowed
+- AI must still work one packet at a time
+- AI must not guess
+- AI must stop and ask if unclear
