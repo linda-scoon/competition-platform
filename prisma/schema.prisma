@@ -6,3 +6,525 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum PlatformRoleType {
+  USER
+  SITE_ADMIN
+  SUPER_ADMIN
+}
+
+enum VerifierRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VerifierPoolStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum ChallengeStatus {
+  DRAFT
+  PUBLISHED_UNLOCKED
+  PUBLISHED_SOFT_LOCKED
+  ACTIVE_FULLY_LOCKED
+  CLOSED
+  FINALIZED
+  CANCELED
+}
+
+enum ChallengeVisibilityState {
+  PUBLIC
+  HIDDEN_BY_MODERATION
+  HIDDEN_BY_ADMIN
+}
+
+enum ChallengeVersionStatus {
+  PENDING_MODERATION
+  APPROVED
+  REJECTED
+}
+
+enum ChallengeParticipantState {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum ChallengeVerifierAssignmentStatus {
+  ACTIVE
+  ENDED_BY_CREATOR
+  ENDED_BY_CONFLICT
+  ENDED_BY_ADMIN
+  ENDED_BY_POOL_REVOCATION
+}
+
+enum RunSubmissionStatus {
+  DRAFT_UPLOAD
+  SUBMITTED
+  LOCKED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  CORRECTION_REQUESTED
+  WITHDRAWN
+}
+
+enum RunSubmissionLockState {
+  UNLOCKED
+  LOCKED
+}
+
+enum RunSubmissionLinkType {
+  CORRECTION_REPLACEMENT
+}
+
+enum VerificationDecisionType {
+  APPROVE
+  REJECT
+  CORRECTION_REQUESTED
+}
+
+enum VerificationDecisionMode {
+  NORMAL_VERIFIER
+  FALLBACK_PARTICIPANT
+  ADMIN_OVERRIDE
+}
+
+enum ParticipantVerificationVoteStatus {
+  OPEN
+  PASSED
+  FAILED
+  CANCELED
+}
+
+enum ParticipantVerificationVoteBallotValue {
+  YES
+  NO
+}
+
+enum MediaAssetType {
+  PROFILE_AVATAR
+  CHALLENGE_COVER
+}
+
+enum MediaAssetStatus {
+  UPLOADED
+  PENDING_MODERATION
+  APPROVED
+  REJECTED
+  REMOVED
+}
+
+enum MediaModerationDecisionType {
+  APPROVE
+  REJECT
+  REMOVE
+  OVERRIDE_APPROVE
+  OVERRIDE_REJECT
+}
+
+enum NotificationType {
+  VERIFIER_REQUEST_STATUS_CHANGED
+  VERIFIER_POOL_MEMBERSHIP_REVOKED
+  CHALLENGE_JOINED_SOFT_LOCK_TRIGGERED
+  RUN_REVIEW_CLAIMED
+  RUN_DECISION_RECORDED
+  FALLBACK_VOTE_OPENED
+  FALLBACK_VOTE_CLOSED
+  MEDIA_MODERATION_DECIDED
+  CONTACT_RELAY_DELIVERY_FAILED
+}
+
+enum ContactRelayDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  BLOCKED
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+}
+
+enum AuditObjectType {
+  USER
+  ROLE_ASSIGNMENT
+  VERIFIER_ELIGIBILITY_REQUEST
+  VERIFIER_POOL_MEMBERSHIP
+  CHALLENGE
+  CHALLENGE_VERSION
+  CHALLENGE_VERIFIER_ASSIGNMENT
+  RUN_SUBMISSION
+  VERIFICATION_DECISION
+  PARTICIPANT_VERIFICATION_VOTE
+  MEDIA_ASSET
+  CONTACT_RELAY_MESSAGE
+}
+
+enum AuditActionType {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  REVOKE
+  ASSIGN
+  REMOVE
+  CLAIM
+  RELEASE
+  VERIFY
+  REQUEST_CORRECTION
+  OPEN
+  CLOSE
+  OVERRIDE
+}
+
+model User {
+  id               String           @id @default(cuid())
+  email            String           @unique
+  emailVerified    DateTime?
+  displayName      String
+  username         String           @unique
+  bio              String?
+  avatarImageId    String?
+  isContactable    Boolean          @default(true)
+  isSuspended      Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  avatarImage      MediaAsset?      @relation("UserAvatarImage", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  blocksGiven      UserBlock[]      @relation("UserBlocksGiven")
+  blocksReceived   UserBlock[]      @relation("UserBlocksReceived")
+  roleAssignments  RoleAssignment[] @relation("RoleAssignments")
+  roleGrants       RoleAssignment[] @relation("RoleAssignmentsGrantedBy")
+  verifierRequests VerifierEligibilityRequest[]
+  verifierRequestDecisions VerifierEligibilityRequest[] @relation("VerifierRequestDecisions")
+  verifierPoolMemberships  VerifierPoolMembership[]     @relation("VerifierPoolMemberships")
+  verifierPoolGrants       VerifierPoolMembership[]     @relation("VerifierPoolGrantedBy")
+  verifierPoolRevocations  VerifierPoolMembership[]     @relation("VerifierPoolRevokedBy")
+  challengesCreated        Challenge[]                  @relation("ChallengesCreated")
+  challengeVersionsCreated ChallengeVersion[]           @relation("ChallengeVersionsCreated")
+  challengeParticipants    ChallengeParticipant[]       @relation("ChallengeParticipants")
+  challengeVerifierAssignments ChallengeVerifierAssignment[] @relation("ChallengeVerifierAssignments")
+  challengeVerifierAssignmentsGiven ChallengeVerifierAssignment[] @relation("ChallengeVerifierAssignedBy")
+  runSubmissions           RunSubmission[]              @relation("RunSubmissions")
+  runSubmissionsClaimed    RunSubmission[]              @relation("RunSubmissionClaimedByVerifier")
+  verificationDecisions    VerificationDecision[]       @relation("VerificationDecisions")
+  participantVoteBallots   ParticipantVerificationVoteBallot[] @relation("ParticipantVoteBallots")
+  mediaAssetsOwned         MediaAsset[]                 @relation("MediaAssetsOwned")
+  mediaModerationDecisions MediaModerationDecision[]    @relation("MediaModerationDecisions")
+  notifications    Notification[]
+  contactMessagesSent      ContactRelayMessage[]        @relation("ContactMessagesSent")
+  contactMessagesReceived  ContactRelayMessage[]        @relation("ContactMessagesReceived")
+  auditLogsActor           AuditLog[]                   @relation("AuditLogsActor")
+
+  @@index([createdAt])
+}
+
+model UserBlock {
+  id            String   @id @default(cuid())
+  blockerUserId String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+  blockerUser   User     @relation("UserBlocksGiven", fields: [blockerUserId], references: [id], onDelete: Cascade)
+  blockedUser   User     @relation("UserBlocksReceived", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerUserId, blockedUserId])
+  @@index([blockedUserId])
+}
+
+model RoleAssignment {
+  id              String           @id @default(cuid())
+  userId           String
+  roleType         PlatformRoleType
+  grantedByUserId  String?
+  reason           String?
+  createdAt        DateTime         @default(now())
+  revokedAt        DateTime?
+  user             User             @relation("RoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser    User?            @relation("RoleAssignmentsGrantedBy", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, roleType])
+  @@index([grantedByUserId])
+}
+
+model VerifierEligibilityRequest {
+  id              String                @id @default(cuid())
+  userId           String
+  status           VerifierRequestStatus
+  reasonText       String
+  decisionNote     String?
+  decidedByUserId  String?
+  createdAt        DateTime              @default(now())
+  decidedAt        DateTime?
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  decidedByUser    User?                 @relation("VerifierRequestDecisions", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([decidedByUserId])
+}
+
+model VerifierPoolMembership {
+  id              String             @id @default(cuid())
+  userId           String
+  status           VerifierPoolStatus
+  grantedByUserId  String?
+  revokedByUserId  String?
+  grantReason      String?
+  revokeReason     String?
+  createdAt        DateTime           @default(now())
+  revokedAt        DateTime?
+  user             User               @relation("VerifierPoolMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser    User?              @relation("VerifierPoolGrantedBy", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+  revokedByUser    User?              @relation("VerifierPoolRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([grantedByUserId])
+  @@index([revokedByUserId])
+}
+
+model Challenge {
+  id                    String                  @id @default(cuid())
+  slug                  String                  @unique
+  creatorUserId         String
+  title                 String
+  shortDescription      String
+  longDescription       String
+  status                ChallengeStatus
+  joinOpensAt           DateTime?
+  joinClosesAt          DateTime?
+  submissionOpensAt     DateTime
+  submissionClosesAt    DateTime
+  resultsFinalizedAt    DateTime?
+  coverImageId          String?
+  isPublic              Boolean                 @default(false)
+  visibilityState       ChallengeVisibilityState
+  lastApprovedVersionId String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  creator               User                    @relation("ChallengesCreated", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  coverImage            MediaAsset?             @relation("ChallengeCoverImage", fields: [coverImageId], references: [id], onDelete: SetNull)
+  lastApprovedVersion   ChallengeVersion?       @relation("ChallengeLastApprovedVersion", fields: [lastApprovedVersionId], references: [id], onDelete: SetNull)
+  versions              ChallengeVersion[]
+  participants          ChallengeParticipant[]
+  verifierAssignments   ChallengeVerifierAssignment[]
+  runSubmissions        RunSubmission[]
+  participantVotes      ParticipantVerificationVote[]
+
+  @@index([creatorUserId, status])
+}
+
+model ChallengeVersion {
+  id                     String                 @id @default(cuid())
+  challengeId            String
+  versionNumber          Int
+  title                  String
+  shortDescription       String
+  longDescription        String
+  rulesSnapshot          Json
+  scoringSnapshot        Json
+  evidencePolicySnapshot Json
+  status                 ChallengeVersionStatus
+  createdByUserId        String
+  createdAt              DateTime               @default(now())
+  approvedAt             DateTime?
+  challenge              Challenge              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  createdByUser          User                   @relation("ChallengeVersionsCreated", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  approvedVersionForChallenge Challenge?        @relation("ChallengeLastApprovedVersion")
+
+  @@unique([challengeId, versionNumber])
+  @@index([challengeId, status])
+}
+
+model ChallengeParticipant {
+  id         String                    @id @default(cuid())
+  challengeId String
+  userId      String
+  joinedAt    DateTime                 @default(now())
+  leftAt      DateTime?
+  state       ChallengeParticipantState
+  challenge   Challenge                @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User                     @relation("ChallengeParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, state])
+  @@index([userId, state])
+}
+
+model ChallengeVerifierAssignment {
+  id               String                            @id @default(cuid())
+  challengeId      String
+  userId           String
+  assignedByUserId String
+  status           ChallengeVerifierAssignmentStatus
+  reason           String?
+  createdAt        DateTime                          @default(now())
+  endedAt          DateTime?
+  challenge        Challenge                         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user             User                              @relation("ChallengeVerifierAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  assignedByUser   User                              @relation("ChallengeVerifierAssignedBy", fields: [assignedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, status])
+  @@index([userId, status])
+}
+
+model RunSubmission {
+  id                         String                 @id @default(cuid())
+  challengeId                String
+  userId                     String
+  status                     RunSubmissionStatus
+  lockState                  RunSubmissionLockState
+  videoUrl                   String
+  videoHost                  String
+  videoTitle                 String?
+  videoThumbnailUrl          String?
+  evidenceUnavailableAt      DateTime?
+  scorePayload               Json
+  submittedAt                DateTime
+  claimedByVerifierUserId    String?
+  claimedAt                  DateTime?
+  resolvedAt                 DateTime?
+  challenge                  Challenge              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user                       User                   @relation("RunSubmissions", fields: [userId], references: [id], onDelete: Cascade)
+  claimedByVerifierUser      User?                  @relation("RunSubmissionClaimedByVerifier", fields: [claimedByVerifierUserId], references: [id], onDelete: SetNull)
+  originalLinks              RunSubmissionLink[]    @relation("OriginalSubmissionLinks")
+  replacementLinks           RunSubmissionLink[]    @relation("ReplacementSubmissionLinks")
+  verificationDecisions      VerificationDecision[]
+
+  @@index([challengeId, status, submittedAt])
+  @@index([userId, status])
+  @@index([claimedByVerifierUserId])
+}
+
+model RunSubmissionLink {
+  id                    String                @id @default(cuid())
+  originalSubmissionId  String
+  replacementSubmissionId String
+  linkType              RunSubmissionLinkType
+  createdAt             DateTime              @default(now())
+  originalSubmission    RunSubmission         @relation("OriginalSubmissionLinks", fields: [originalSubmissionId], references: [id], onDelete: Cascade)
+  replacementSubmission RunSubmission         @relation("ReplacementSubmissionLinks", fields: [replacementSubmissionId], references: [id], onDelete: Cascade)
+
+  @@unique([originalSubmissionId, replacementSubmissionId])
+  @@index([replacementSubmissionId])
+}
+
+model VerificationDecision {
+  id            String                   @id @default(cuid())
+  submissionId  String
+  deciderUserId String
+  decisionType  VerificationDecisionType
+  note          String?
+  mode          VerificationDecisionMode
+  createdAt     DateTime                 @default(now())
+  submission    RunSubmission            @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  deciderUser   User                     @relation("VerificationDecisions", fields: [deciderUserId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, createdAt])
+  @@index([deciderUserId, createdAt])
+}
+
+model ParticipantVerificationVote {
+  id           String                           @id @default(cuid())
+  challengeId  String
+  status       ParticipantVerificationVoteStatus
+  openedAt     DateTime                         @default(now())
+  closedAt     DateTime?
+  openedReason String
+  challenge    Challenge                         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  ballots      ParticipantVerificationVoteBallot[]
+
+  @@index([challengeId, status])
+}
+
+model ParticipantVerificationVoteBallot {
+  id        String                                 @id @default(cuid())
+  voteId     String
+  userId     String
+  value      ParticipantVerificationVoteBallotValue
+  createdAt  DateTime                              @default(now())
+  vote       ParticipantVerificationVote            @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  user       User                                  @relation("ParticipantVoteBallots", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([voteId, userId])
+  @@index([userId, createdAt])
+}
+
+model MediaAsset {
+  id         String           @id @default(cuid())
+  ownerUserId String
+  type       MediaAssetType
+  storageKey String
+  mimeType   String
+  width      Int?
+  height     Int?
+  status     MediaAssetStatus
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  ownerUser  User             @relation("MediaAssetsOwned", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  avatarForUsers      User[]                    @relation("UserAvatarImage")
+  coverForChallenges  Challenge[]               @relation("ChallengeCoverImage")
+  moderationDecisions MediaModerationDecision[]
+
+  @@index([ownerUserId, status])
+}
+
+model MediaModerationDecision {
+  id           String                     @id @default(cuid())
+  mediaAssetId String
+  deciderUserId String
+  decisionType MediaModerationDecisionType
+  note         String?
+  createdAt    DateTime                   @default(now())
+  mediaAsset   MediaAsset                 @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  deciderUser  User                       @relation("MediaModerationDecisions", fields: [deciderUserId], references: [id], onDelete: Cascade)
+
+  @@index([mediaAssetId, createdAt])
+  @@index([deciderUserId, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  payload   Json
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+}
+
+model ContactRelayMessage {
+  id             String                     @id @default(cuid())
+  senderUserId   String
+  recipientUserId String
+  subject        String?
+  body           String
+  deliveryStatus ContactRelayDeliveryStatus
+  createdAt      DateTime                   @default(now())
+  sentAt         DateTime?
+  senderUser     User                       @relation("ContactMessagesSent", fields: [senderUserId], references: [id], onDelete: Cascade)
+  recipientUser  User                       @relation("ContactMessagesReceived", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, deliveryStatus, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model AuditLog {
+  id          String          @id @default(cuid())
+  actorUserId String?
+  actorType   AuditActorType
+  objectType  AuditObjectType
+  objectId    String
+  actionType  AuditActionType
+  reason      String?
+  metadata    Json
+  createdAt   DateTime        @default(now())
+  actorUser   User?           @relation("AuditLogsActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([objectType, objectId])
+  @@index([actorUserId, createdAt])
+}
