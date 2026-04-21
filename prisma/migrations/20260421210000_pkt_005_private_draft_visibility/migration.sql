@@ -1,0 +1,1 @@
+ALTER TYPE "ChallengeVisibilityState" ADD VALUE IF NOT EXISTS 'PRIVATE_DRAFT';
