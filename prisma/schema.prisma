@@ -38,6 +38,7 @@ enum ChallengeVisibilityState {
   PUBLIC
   HIDDEN_BY_MODERATION
   HIDDEN_BY_ADMIN
+  PRIVATE_DRAFT
 }
 
 enum ChallengeVersionStatus {

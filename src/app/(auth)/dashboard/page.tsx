@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
@@ -17,6 +18,12 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center p-6">
       <h1 className="text-3xl font-semibold">Dashboard</h1>
       <p className="mt-3 text-slate-300">Signed in as {user.email}.</p>
+
+      <div className="mt-8">
+        <Link className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400" href="/challenges/new">
+          Create challenge draft
+        </Link>
+      </div>
 
       <form className="mt-8" action={signOutAction}>
         <button className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium hover:bg-slate-800" type="submit">
