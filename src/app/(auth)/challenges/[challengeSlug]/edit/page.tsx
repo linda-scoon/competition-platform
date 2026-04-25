@@ -1,10 +1,14 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ChallengeDraftForm } from "@/components/challenges/challenge-draft-form";
 import { getSession } from "@/lib/auth/session";
 import { ChallengeStatus } from "@prisma/client";
 
-import { ensureChallengeCreator, getOwnedChallengeForEditingBySlugFromDb } from "@/lib/challenges/draft-repository";
+import {
+  ensureChallengeCreator,
+  getOwnedChallengeForEditingBySlugFromDb,
+} from "@/lib/challenges/draft-repository";
 
 import { editChallengeDraftAction, publishChallengeAction } from "./actions";
 
@@ -22,7 +26,11 @@ type EditChallengePageProps = {
 };
 
 export default async function EditChallengePage({ params, searchParams }: EditChallengePageProps) {
-  const [routeParams, queryParams, session] = await Promise.all([params, searchParams, getSession()]);
+  const [routeParams, queryParams, session] = await Promise.all([
+    params,
+    searchParams,
+    getSession(),
+  ]);
   const returnTo = `/challenges/${routeParams.challengeSlug}/edit`;
 
   if (!session?.user) {
@@ -42,13 +50,19 @@ export default async function EditChallengePage({ params, searchParams }: EditCh
     redirect("/dashboard");
   }
 
-  const saveDraftAction = editChallengeDraftAction.bind(null, { challengeSlug: routeParams.challengeSlug });
-  const publishAction = publishChallengeAction.bind(null, { challengeSlug: routeParams.challengeSlug });
+  const saveDraftAction = editChallengeDraftAction.bind(null, {
+    challengeSlug: routeParams.challengeSlug,
+  });
+  const publishAction = publishChallengeAction.bind(null, {
+    challengeSlug: routeParams.challengeSlug,
+  });
   const isDraft = challenge.status === ChallengeStatus.DRAFT;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
-      <h1 className="text-3xl font-semibold">{isDraft ? "Edit challenge draft" : "Edit published challenge"}</h1>
+      <h1 className="text-3xl font-semibold">
+        {isDraft ? "Edit challenge draft" : "Edit published challenge"}
+      </h1>
       <p className="mt-2 text-sm text-slate-300">
         {isDraft
           ? "Save draft updates or publish now with immediate AI moderation."
@@ -84,6 +98,15 @@ export default async function EditChallengePage({ params, searchParams }: EditCh
           Please review your inputs and try again.
         </p>
       ) : null}
+
+      <div className="mt-4">
+        <Link
+          className="inline-flex rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800"
+          href={`/challenges/${routeParams.challengeSlug}/verifiers`}
+        >
+          Manage verifiers
+        </Link>
+      </div>
 
       <ChallengeDraftForm
         action={saveDraftAction}
