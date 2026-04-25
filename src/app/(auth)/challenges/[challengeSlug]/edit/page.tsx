@@ -9,6 +9,7 @@ import {
   ensureChallengeCreator,
   getOwnedChallengeForEditingBySlugFromDb,
 } from "@/lib/challenges/draft-repository";
+import { listOwnerCoverMediaAssetsForChallengeFromDb } from "@/lib/media/repository";
 
 import { editChallengeDraftAction, publishChallengeAction } from "./actions";
 
@@ -41,10 +42,13 @@ export default async function EditChallengePage({ params, searchParams }: EditCh
 
   await ensureChallengeCreator(user);
 
-  const challenge = await getOwnedChallengeForEditingBySlugFromDb({
-    slug: routeParams.challengeSlug,
-    creatorUserId: user.id,
-  });
+  const [challenge, coverAssets] = await Promise.all([
+    getOwnedChallengeForEditingBySlugFromDb({
+      slug: routeParams.challengeSlug,
+      creatorUserId: user.id,
+    }),
+    listOwnerCoverMediaAssetsForChallengeFromDb({ ownerUserId: user.id }),
+  ]);
 
   if (!challenge) {
     redirect("/dashboard");
@@ -95,16 +99,24 @@ export default async function EditChallengePage({ params, searchParams }: EditCh
 
       {queryParams.error ? (
         <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-          Please review your inputs and try again.
+          {queryParams.error === "invalid_cover_image"
+            ? "Selected cover image is not eligible. Choose one of your approved or pending cover images."
+            : "Please review your inputs and try again."}
         </p>
       ) : null}
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-3">
         <Link
           className="inline-flex rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800"
           href={`/challenges/${routeParams.challengeSlug}/verifiers`}
         >
           Manage verifiers
+        </Link>
+        <Link
+          className="inline-flex rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-800"
+          href="/dashboard/media"
+        >
+          Open media library
         </Link>
       </div>
 
@@ -118,7 +130,12 @@ export default async function EditChallengePage({ params, searchParams }: EditCh
           title: challenge.title,
           shortDescription: challenge.shortDescription,
           longDescription: challenge.longDescription,
+          coverImageId: challenge.coverImageId,
         }}
+        coverImageOptions={coverAssets.map((asset) => ({
+          id: asset.id,
+          status: asset.status,
+        }))}
       />
     </main>
   );

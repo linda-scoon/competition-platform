@@ -1,4 +1,9 @@
-import { ChallengeStatus, ChallengeVisibilityState, RunSubmissionStatus } from "@prisma/client";
+import {
+  ChallengeStatus,
+  ChallengeVisibilityState,
+  MediaAssetStatus,
+  RunSubmissionStatus,
+} from "@prisma/client";
 
 import {
   reconcileChallengeLifecycleBySlugInDb,
@@ -34,6 +39,7 @@ export type PublicChallengeDirectoryItem = {
   submissionOpensAt: Date;
   submissionClosesAt: Date;
   creatorDisplayName: string;
+  coverImageUrl: string | null;
 };
 
 export async function getPublicChallengeDirectoryFromDb(): Promise<PublicChallengeDirectoryItem[]> {
@@ -59,6 +65,12 @@ export async function getPublicChallengeDirectoryFromDb(): Promise<PublicChallen
           shortDescription: true,
         },
       },
+      coverImage: {
+        select: {
+          storageKey: true,
+          status: true,
+        },
+      },
     },
   });
 
@@ -77,6 +89,10 @@ export async function getPublicChallengeDirectoryFromDb(): Promise<PublicChallen
         submissionOpensAt: challenge.submissionOpensAt,
         submissionClosesAt: challenge.submissionClosesAt,
         creatorDisplayName: challenge.creator.displayName,
+        coverImageUrl:
+          challenge.coverImage?.status === MediaAssetStatus.APPROVED
+            ? challenge.coverImage.storageKey
+            : null,
       } satisfies PublicChallengeDirectoryItem;
     })
     .filter((challenge): challenge is PublicChallengeDirectoryItem => challenge !== null);
@@ -102,6 +118,7 @@ export type PublicChallengeDetail = {
   submissionOpensAt: Date;
   submissionClosesAt: Date;
   creatorDisplayName: string;
+  coverImageUrl: string | null;
   rulesSnapshot: unknown;
   scoringSnapshot: unknown;
   evidencePolicySnapshot: unknown;
@@ -147,6 +164,12 @@ export async function getPublicChallengeDetailBySlugFromDb(
           rulesSnapshot: true,
           scoringSnapshot: true,
           evidencePolicySnapshot: true,
+        },
+      },
+      coverImage: {
+        select: {
+          storageKey: true,
+          status: true,
         },
       },
       runSubmissions: {
@@ -262,6 +285,10 @@ export async function getPublicChallengeDetailBySlugFromDb(
     submissionOpensAt: challenge.submissionOpensAt,
     submissionClosesAt: challenge.submissionClosesAt,
     creatorDisplayName: challenge.creator.displayName,
+    coverImageUrl:
+      challenge.coverImage?.status === MediaAssetStatus.APPROVED
+        ? challenge.coverImage.storageKey
+        : null,
     rulesSnapshot: challenge.lastApprovedVersion.rulesSnapshot,
     scoringSnapshot: challenge.lastApprovedVersion.scoringSnapshot,
     evidencePolicySnapshot: challenge.lastApprovedVersion.evidencePolicySnapshot,
