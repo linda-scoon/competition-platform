@@ -1,4 +1,9 @@
-import { ChallengeVerifierAssignmentStatus, RunSubmissionStatus } from "@prisma/client";
+import {
+  ChallengeParticipantState,
+  ChallengeVerifierAssignmentStatus,
+  ParticipantVerificationVoteStatus,
+  RunSubmissionStatus,
+} from "@prisma/client";
 
 import { userHasAdminVerifierReviewAuthority } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db/prisma";
@@ -30,6 +35,7 @@ export type ReviewQueueViewState = {
   access: {
     isAssignedVerifier: boolean;
     isAdminAuthority: boolean;
+    isFallbackParticipant: boolean;
   };
   unclaimedSubmissions: Array<ReviewQueueSubmission>;
   claimedByYou: Array<ReviewQueueSubmission>;
@@ -51,25 +57,49 @@ export type GetReviewQueueResult =
   | { outcome: "VISIBLE"; viewState: ReviewQueueViewState };
 
 async function getQueueAccess(input: { challengeId: string; actorUserId: string }) {
-  const [isAdminAuthority, activeAssignment] = await Promise.all([
-    userHasAdminVerifierReviewAuthority(input.actorUserId),
-    prisma.challengeVerifierAssignment.findFirst({
-      where: {
-        challengeId: input.challengeId,
-        userId: input.actorUserId,
-        status: ChallengeVerifierAssignmentStatus.ACTIVE,
-        endedAt: null,
-      },
-      select: {
-        id: true,
-      },
-    }),
-  ]);
+  const [isAdminAuthority, activeAssignment, activeFallbackVote, activeParticipant] =
+    await Promise.all([
+      userHasAdminVerifierReviewAuthority(input.actorUserId),
+      prisma.challengeVerifierAssignment.findFirst({
+        where: {
+          challengeId: input.challengeId,
+          userId: input.actorUserId,
+          status: ChallengeVerifierAssignmentStatus.ACTIVE,
+          endedAt: null,
+        },
+        select: {
+          id: true,
+        },
+      }),
+      prisma.participantVerificationVote.findFirst({
+        where: {
+          challengeId: input.challengeId,
+          status: ParticipantVerificationVoteStatus.PASSED,
+        },
+        select: {
+          id: true,
+        },
+      }),
+      prisma.challengeParticipant.findFirst({
+        where: {
+          challengeId: input.challengeId,
+          userId: input.actorUserId,
+          state: ChallengeParticipantState.ACTIVE,
+          leftAt: null,
+        },
+        select: {
+          id: true,
+        },
+      }),
+    ]);
+
+  const isFallbackParticipant = Boolean(activeFallbackVote) && Boolean(activeParticipant);
 
   return {
     isAdminAuthority,
     isAssignedVerifier: Boolean(activeAssignment),
-    canAccessQueue: Boolean(activeAssignment) || isAdminAuthority,
+    isFallbackParticipant,
+    canAccessQueue: Boolean(activeAssignment) || isAdminAuthority || isFallbackParticipant,
   };
 }
 
@@ -143,9 +173,12 @@ export async function getReviewQueueViewStateFromDb(input: {
       access: {
         isAssignedVerifier: access.isAssignedVerifier,
         isAdminAuthority: access.isAdminAuthority,
+        isFallbackParticipant: access.isFallbackParticipant,
       },
       unclaimedSubmissions: submissions.filter(
-        (submission) => submission.claimedByVerifierUser === null,
+        (submission) =>
+          submission.claimedByVerifierUser === null &&
+          !(access.isFallbackParticipant && submission.user.id === input.actorUserId),
       ),
       claimedByYou: submissions.filter(
         (submission) => submission.claimedByVerifierUser?.id === input.actorUserId,
@@ -163,6 +196,7 @@ export async function getReviewQueueViewStateFromDb(input: {
 export type ClaimReviewSubmissionResult =
   | { outcome: "SUBMISSION_NOT_FOUND" }
   | { outcome: "FORBIDDEN" }
+  | { outcome: "SELF_VERIFICATION_FORBIDDEN" }
   | { outcome: "ALREADY_CLAIMED_BY_YOU" }
   | { outcome: "ALREADY_CLAIMED_BY_OTHER" }
   | { outcome: "CLAIMED" };
@@ -205,12 +239,17 @@ export async function claimReviewSubmissionInDb(input: {
     },
     select: {
       id: true,
+      userId: true,
       claimedByVerifierUserId: true,
     },
   });
 
   if (!existing) {
     return { outcome: "SUBMISSION_NOT_FOUND" };
+  }
+
+  if (access.isFallbackParticipant && existing.userId === input.actorUserId) {
+    return { outcome: "SELF_VERIFICATION_FORBIDDEN" };
   }
 
   if (existing.claimedByVerifierUserId === input.actorUserId) {
@@ -326,7 +365,7 @@ export async function releaseReviewClaimInDb(input: {
   });
 
   if (updateResult.count < 1) {
-    return { outcome: "SUBMISSION_NOT_FOUND" };
+    return { outcome: "NOT_CLAIMED" };
   }
 
   return { outcome: "RELEASED" };
