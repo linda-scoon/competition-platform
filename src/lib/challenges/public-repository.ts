@@ -1,4 +1,4 @@
-import { ChallengeStatus, ChallengeVisibilityState } from "@prisma/client";
+import { ChallengeStatus, ChallengeVisibilityState, RunSubmissionStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 
@@ -76,6 +76,16 @@ export async function getPublicChallengeDirectoryFromDb(): Promise<PublicChallen
     .filter((challenge): challenge is PublicChallengeDirectoryItem => challenge !== null);
 }
 
+export type PublicLeaderboardEntry = {
+  rank: number;
+  userId: string;
+  displayName: string;
+  username: string;
+  bestSubmissionId: string;
+  primaryScore: number;
+  submittedAt: Date;
+};
+
 export type PublicChallengeDetail = {
   id: string;
   slug: string;
@@ -89,7 +99,18 @@ export type PublicChallengeDetail = {
   rulesSnapshot: unknown;
   scoringSnapshot: unknown;
   evidencePolicySnapshot: unknown;
+  leaderboardEntries: PublicLeaderboardEntry[];
 };
+
+function getPrimaryScore(scorePayload: unknown): number | null {
+  if (!scorePayload || typeof scorePayload !== "object") {
+    return null;
+  }
+
+  const value = (scorePayload as { primaryScore?: unknown }).primaryScore;
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 
 export async function getPublicChallengeDetailBySlugFromDb(
   slug: string,
@@ -120,12 +141,108 @@ export async function getPublicChallengeDetailBySlugFromDb(
           evidencePolicySnapshot: true,
         },
       },
+      runSubmissions: {
+        where: {
+          status: RunSubmissionStatus.VERIFIED,
+        },
+        select: {
+          id: true,
+          submittedAt: true,
+          scorePayload: true,
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              username: true,
+            },
+          },
+        },
+      },
     },
   });
 
   if (!challenge?.lastApprovedVersion) {
     return null;
   }
+
+  const bestVerifiedByUser = new Map<
+    string,
+    {
+      bestSubmissionId: string;
+      primaryScore: number;
+      submittedAt: Date;
+      userId: string;
+      displayName: string;
+      username: string;
+    }
+  >();
+
+  for (const submission of challenge.runSubmissions) {
+    const primaryScore = getPrimaryScore(submission.scorePayload);
+
+    if (primaryScore === null) {
+      continue;
+    }
+
+    const existing = bestVerifiedByUser.get(submission.user.id);
+
+    if (!existing) {
+      bestVerifiedByUser.set(submission.user.id, {
+        bestSubmissionId: submission.id,
+        primaryScore,
+        submittedAt: submission.submittedAt,
+        userId: submission.user.id,
+        displayName: submission.user.displayName,
+        username: submission.user.username,
+      });
+      continue;
+    }
+
+    if (primaryScore > existing.primaryScore) {
+      bestVerifiedByUser.set(submission.user.id, {
+        bestSubmissionId: submission.id,
+        primaryScore,
+        submittedAt: submission.submittedAt,
+        userId: submission.user.id,
+        displayName: submission.user.displayName,
+        username: submission.user.username,
+      });
+      continue;
+    }
+
+    if (primaryScore === existing.primaryScore && submission.submittedAt < existing.submittedAt) {
+      bestVerifiedByUser.set(submission.user.id, {
+        bestSubmissionId: submission.id,
+        primaryScore,
+        submittedAt: submission.submittedAt,
+        userId: submission.user.id,
+        displayName: submission.user.displayName,
+        username: submission.user.username,
+      });
+    }
+  }
+
+  const leaderboardEntries = Array.from(bestVerifiedByUser.values())
+    .sort((a, b) => {
+      if (b.primaryScore !== a.primaryScore) {
+        return b.primaryScore - a.primaryScore;
+      }
+
+      if (a.submittedAt.getTime() !== b.submittedAt.getTime()) {
+        return a.submittedAt.getTime() - b.submittedAt.getTime();
+      }
+
+      return a.bestSubmissionId.localeCompare(b.bestSubmissionId);
+    })
+    .map((entry, index) => ({
+      rank: index + 1,
+      userId: entry.userId,
+      displayName: entry.displayName,
+      username: entry.username,
+      bestSubmissionId: entry.bestSubmissionId,
+      primaryScore: entry.primaryScore,
+      submittedAt: entry.submittedAt,
+    }));
 
   return {
     id: challenge.id,
@@ -140,5 +257,6 @@ export async function getPublicChallengeDetailBySlugFromDb(
     rulesSnapshot: challenge.lastApprovedVersion.rulesSnapshot,
     scoringSnapshot: challenge.lastApprovedVersion.scoringSnapshot,
     evidencePolicySnapshot: challenge.lastApprovedVersion.evidencePolicySnapshot,
+    leaderboardEntries,
   } satisfies PublicChallengeDetail;
 }

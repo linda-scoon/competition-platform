@@ -218,9 +218,30 @@ export default async function ChallengeDetailPage({
         ) : (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Leaderboard</h2>
-            <p className="text-sm text-slate-300">
-              Leaderboard data will be added in later packets.
-            </p>
+            {challenge.leaderboardEntries.length < 1 ? (
+              <p className="text-sm text-slate-300">No verified runs yet.</p>
+            ) : (
+              <ol className="space-y-2">
+                {challenge.leaderboardEntries.map((entry) => (
+                  <li
+                    key={entry.userId}
+                    className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200"
+                  >
+                    <p>
+                      <span className="font-medium">#{entry.rank}</span> {entry.displayName} (@
+                      {entry.username})
+                    </p>
+                    <p className="text-slate-300">
+                      Best verified score:{" "}
+                      <span className="font-medium text-slate-100">{entry.primaryScore}</span>
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Submission {entry.bestSubmissionId} · {entry.submittedAt.toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         )}
       </article>

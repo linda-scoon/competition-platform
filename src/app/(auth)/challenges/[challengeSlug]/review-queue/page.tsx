@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { getReviewQueueViewStateFromDb } from "@/lib/runs/review-queue-repository";
 
-import { claimReviewSubmissionAction, releaseReviewClaimAction } from "./actions";
+import {
+  approveSubmissionAction,
+  claimReviewSubmissionAction,
+  rejectSubmissionAction,
+  releaseReviewClaimAction,
+  requestCorrectionSubmissionAction,
+} from "./actions";
 
 type ReviewQueuePageProps = {
   params: Promise<{
@@ -13,6 +19,9 @@ type ReviewQueuePageProps = {
   searchParams: Promise<{
     claimed?: string;
     released?: string;
+    approved?: string;
+    rejected?: string;
+    correction_requested?: string;
     error?: string;
   }>;
 };
@@ -66,6 +75,15 @@ export default async function ChallengeReviewQueuePage({
   const releaseAction = releaseReviewClaimAction.bind(null, {
     challengeSlug: routeParams.challengeSlug,
   });
+  const approveAction = approveSubmissionAction.bind(null, {
+    challengeSlug: routeParams.challengeSlug,
+  });
+  const rejectAction = rejectSubmissionAction.bind(null, {
+    challengeSlug: routeParams.challengeSlug,
+  });
+  const requestCorrectionAction = requestCorrectionSubmissionAction.bind(null, {
+    challengeSlug: routeParams.challengeSlug,
+  });
 
   return (
     <section className="space-y-6">
@@ -93,6 +111,24 @@ export default async function ChallengeReviewQueuePage({
         </p>
       ) : null}
 
+      {queryParams.approved === "1" ? (
+        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+          Submission approved and marked verified.
+        </p>
+      ) : null}
+
+      {queryParams.rejected === "1" ? (
+        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+          Submission rejected.
+        </p>
+      ) : null}
+
+      {queryParams.correction_requested === "1" ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+          Correction requested for submission.
+        </p>
+      ) : null}
+
       {queryParams.error === "forbidden" ? (
         <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
           You do not have permission for this queue action.
@@ -114,6 +150,12 @@ export default async function ChallengeReviewQueuePage({
       {queryParams.error === "not_claimed" ? (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
           That submission is not currently claimed.
+        </p>
+      ) : null}
+
+      {queryParams.error === "decision_note_required" ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+          Reject and correction decisions require a decision note.
         </p>
       ) : null}
 
@@ -224,10 +266,54 @@ export default async function ChallengeReviewQueuePage({
                     Open video
                   </Link>
 
+                  <form action={approveAction}>
+                    <input name="submissionId" type="hidden" value={submission.id} />
+                    <button
+                      className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                      type="submit"
+                    >
+                      Approve
+                    </button>
+                  </form>
+
+                  <form action={rejectAction} className="flex items-center gap-2">
+                    <input name="submissionId" type="hidden" value={submission.id} />
+                    <input
+                      className="rounded-md border border-rose-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
+                      name="note"
+                      placeholder="Rejection note (required)"
+                      required
+                      type="text"
+                    />
+                    <button
+                      className="rounded-md border border-rose-600 px-3 py-2 text-sm font-medium text-rose-200 hover:bg-rose-900/30"
+                      type="submit"
+                    >
+                      Reject
+                    </button>
+                  </form>
+
+                  <form action={requestCorrectionAction} className="flex items-center gap-2">
+                    <input name="submissionId" type="hidden" value={submission.id} />
+                    <input
+                      className="rounded-md border border-amber-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
+                      name="note"
+                      placeholder="Correction note (required)"
+                      required
+                      type="text"
+                    />
+                    <button
+                      className="rounded-md border border-amber-600 px-3 py-2 text-sm font-medium text-amber-200 hover:bg-amber-900/30"
+                      type="submit"
+                    >
+                      Request correction
+                    </button>
+                  </form>
+
                   <form action={releaseAction}>
                     <input name="submissionId" type="hidden" value={submission.id} />
                     <button
-                      className="rounded-md border border-amber-600 px-3 py-2 text-sm font-medium text-amber-200 hover:bg-amber-900/30"
+                      className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
                       type="submit"
                     >
                       Release claim
