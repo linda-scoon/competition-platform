@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { autoRemoveVerifierAssignmentForConflictInDb } from "@/lib/challenges/verifier-assignment-conflict-repository";
 
 type JoinPublicChallengeInput = {
   challengeSlug: string;
@@ -92,6 +93,14 @@ export async function joinPublicChallengeInDb({
       select: {
         id: true,
       },
+    });
+
+    await autoRemoveVerifierAssignmentForConflictInDb({
+      tx,
+      challengeId: challenge.id,
+      verifierUserId: userId,
+      triggeredBy: "participant_join",
+      triggerObjectId: participant.id,
     });
 
     const softLockUpdate = await tx.challenge.updateMany({
