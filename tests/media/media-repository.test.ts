@@ -18,6 +18,19 @@ vi.mock("@prisma/client", () => ({
     OVERRIDE_APPROVE: "OVERRIDE_APPROVE",
     OVERRIDE_REJECT: "OVERRIDE_REJECT",
   },
+  AuditActorType: {
+    USER: "USER",
+    SYSTEM: "SYSTEM",
+  },
+  AuditObjectType: {
+    MEDIA_ASSET: "MEDIA_ASSET",
+  },
+  AuditActionType: {
+    APPROVE: "APPROVE",
+    REJECT: "REJECT",
+    REMOVE: "REMOVE",
+    OVERRIDE: "OVERRIDE",
+  },
 }));
 
 const { prismaMock } = vi.hoisted(() => ({
@@ -26,6 +39,13 @@ const { prismaMock } = vi.hoisted(() => ({
       create: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      update: vi.fn(),
+    },
+    mediaModerationDecision: {
+      create: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -68,6 +88,58 @@ describe("media repository", () => {
     });
 
     expect(result).toEqual({ outcome: "NOTE_REQUIRED" });
+  });
+
+  it("rejects moderation when media is no longer pending", async () => {
+    prismaMock.mediaAsset.findUnique.mockResolvedValue({
+      id: "asset_1",
+      status: "APPROVED",
+    });
+
+    const result = await moderateMediaAssetInDb({
+      mediaAssetId: "asset_1",
+      deciderUserId: "admin_1",
+      decisionType: "REMOVE" as never,
+      note: "policy issue",
+    });
+
+    expect(result).toEqual({ outcome: "NOT_PENDING" });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("writes moderation decision and audit record for pending media", async () => {
+    prismaMock.mediaAsset.findUnique.mockResolvedValue({
+      id: "asset_1",
+      status: "PENDING_MODERATION",
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+    prismaMock.mediaAsset.update.mockResolvedValue({ id: "asset_1" });
+    prismaMock.mediaModerationDecision.create.mockResolvedValue({ id: "decision_1" });
+    prismaMock.auditLog.create.mockResolvedValue({ id: "audit_1" });
+
+    const result = await moderateMediaAssetInDb({
+      mediaAssetId: "asset_1",
+      deciderUserId: "admin_1",
+      decisionType: "APPROVE" as never,
+      note: "  looks good  ",
+    });
+
+    expect(result).toEqual({ outcome: "DECIDED", nextStatus: "APPROVED" });
+    expect(prismaMock.mediaModerationDecision.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          note: "looks good",
+        }),
+      }),
+    );
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          objectId: "asset_1",
+          reason: "media_moderation_decision_recorded",
+        }),
+      }),
+    );
   });
 
   it("rejects selecting cover image not owned by user", async () => {
