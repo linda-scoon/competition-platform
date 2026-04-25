@@ -116,7 +116,14 @@ export default async function ChallengeDetailPage({
         <dl className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
           <div>
             <dt className="font-semibold uppercase tracking-wide text-slate-500">Creator</dt>
-            <dd className="mt-1 text-slate-200">{challenge.creatorDisplayName}</dd>
+            <dd className="mt-1 text-slate-200">
+              <Link
+                className="text-indigo-300 hover:text-indigo-200"
+                href={`/u/${challenge.creatorUsername}`}
+              >
+                {challenge.creatorDisplayName}
+              </Link>
+            </dd>
           </div>
           <div>
             <dt className="font-semibold uppercase tracking-wide text-slate-500">
@@ -242,8 +249,13 @@ export default async function ChallengeDetailPage({
                     className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200"
                   >
                     <p>
-                      <span className="font-medium">#{entry.rank}</span> {entry.displayName} (@
-                      {entry.username})
+                      <span className="font-medium">#{entry.rank}</span>{" "}
+                      <Link
+                        className="text-indigo-300 hover:text-indigo-200"
+                        href={`/u/${entry.username}`}
+                      >
+                        {entry.displayName} (@{entry.username})
+                      </Link>
                     </p>
                     <p className="text-slate-300">
                       Best verified score:{" "}
