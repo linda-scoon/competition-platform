@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
-import { userHasAdminVerifierReviewAuthority } from "@/lib/auth/authorization";
-import { getSession } from "@/lib/auth/session";
+import { AdminOperationsNav } from "@/app/(admin)/admin/_components/admin-operations-nav";
+import {
+  getAdminOperationsOverviewFromDb,
+  listProblemContactRelayMessagesFromDb,
+} from "@/lib/admin/operations-repository";
 import { listPendingMediaAssetsForAdminFromDb } from "@/lib/media/repository";
 import { listPendingVerifierEligibilityRequests } from "@/lib/verifier-eligibility/admin-review-repository";
 
@@ -11,6 +13,7 @@ import {
   moderatePendingMediaAssetAction,
   rejectVerifierRequestAction,
 } from "./actions";
+import { requireAdminAccess } from "./_lib/require-admin-access";
 
 type AdminVerifierRequestReviewPageProps = {
   searchParams?: Promise<{
@@ -26,22 +29,14 @@ type AdminVerifierRequestReviewPageProps = {
 export default async function AdminVerifierRequestReviewPage({
   searchParams,
 }: AdminVerifierRequestReviewPageProps) {
-  const session = await getSession();
-
-  if (!session?.user) {
-    redirect("/sign-in?returnTo=/admin");
-  }
-
-  const hasAuthority = await userHasAdminVerifierReviewAuthority(session.user.id);
-
-  if (!hasAuthority) {
-    redirect("/dashboard");
-  }
+  await requireAdminAccess("/admin");
 
   const params = searchParams ? await searchParams : undefined;
-  const [pendingRequests, pendingMediaAssets] = await Promise.all([
+  const [overview, pendingRequests, pendingMediaAssets, relayMessages] = await Promise.all([
+    getAdminOperationsOverviewFromDb(),
     listPendingVerifierEligibilityRequests(),
     listPendingMediaAssetsForAdminFromDb(),
+    listProblemContactRelayMessagesFromDb(),
   ]);
 
   return (
@@ -49,9 +44,33 @@ export default async function AdminVerifierRequestReviewPage({
       <header className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
         <h1 className="text-2xl font-semibold text-slate-100">Admin operations</h1>
         <p className="mt-2 text-sm text-slate-300">
-          Review verifier eligibility requests and pending media uploads.
+          Operational dashboard with queue visibility for logs, runs, challenges, users, and
+          moderation.
         </p>
       </header>
+
+      <AdminOperationsNav currentPath="/admin" />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <OperationalCard label="Audit logs" value={overview.auditLogCount} />
+        <OperationalCard label="Runs in queue" value={overview.runQueueCount} />
+        <OperationalCard
+          label="Unresolved closed challenges"
+          value={overview.unresolvedClosedChallengeCount}
+        />
+        <OperationalCard
+          label="Pending challenge moderation"
+          value={overview.pendingChallengeVersionCount}
+        />
+        <OperationalCard
+          label="Pending media moderation"
+          value={overview.pendingMediaModerationCount}
+        />
+        <OperationalCard
+          label="Failed contact relay messages"
+          value={overview.failedContactRelayCount}
+        />
+      </div>
 
       {params?.approved === "1" ? (
         <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
@@ -142,6 +161,43 @@ export default async function AdminVerifierRequestReviewPage({
           Reject and remove decisions require notes.
         </p>
       ) : null}
+
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-lg font-medium text-slate-100">Operational contact relay queue</h2>
+        {relayMessages.length < 1 ? (
+          <p className="mt-3 text-sm text-slate-300">No queued or failed relay messages.</p>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm text-slate-200">
+            {relayMessages.slice(0, 8).map((relayMessage) => (
+              <li
+                key={relayMessage.id}
+                className="rounded-md border border-slate-800 bg-slate-950/60 p-3"
+              >
+                <p>
+                  <span className="font-medium">Status:</span> {relayMessage.deliveryStatus}
+                </p>
+                <p>
+                  <span className="font-medium">From:</span> {relayMessage.senderUser.displayName}{" "}
+                  (@
+                  {relayMessage.senderUser.username})
+                </p>
+                <p>
+                  <span className="font-medium">To:</span> {relayMessage.recipientUser.displayName}{" "}
+                  (@
+                  {relayMessage.recipientUser.username})
+                </p>
+                <p>
+                  <span className="font-medium">Created:</span>{" "}
+                  {relayMessage.createdAt.toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-slate-400">
+          Showing first 8 items. Full queue visibility is on page-specific views.
+        </p>
+      </div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-medium text-slate-100">Pending media uploads</h2>
@@ -319,5 +375,19 @@ export default async function AdminVerifierRequestReviewPage({
         </Link>
       </div>
     </section>
+  );
+}
+
+type OperationalCardProps = {
+  label: string;
+  value: number;
+};
+
+function OperationalCard({ label, value }: OperationalCardProps) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-100">{value}</p>
+    </div>
   );
 }
