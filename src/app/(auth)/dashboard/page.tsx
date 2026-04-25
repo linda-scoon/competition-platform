@@ -19,9 +19,12 @@ export default async function DashboardPage() {
       <h1 className="text-3xl font-semibold">Dashboard</h1>
       <p className="mt-3 text-slate-300">Signed in as {user.email}.</p>
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-wrap gap-3">
         <Link className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400" href="/challenges/new">
           Create challenge draft
+        </Link>
+        <Link className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800" href="/dashboard/verifier-eligibility">
+          Verifier eligibility request
         </Link>
       </div>
 
