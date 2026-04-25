@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getSession } from "@/lib/auth/session";
 import { PublicChallengeStateBadge } from "@/components/challenges/public-challenge-state";
 import { getPublicChallengeDetailBySlugFromDb } from "@/lib/challenges/public-repository";
+import { joinChallengeAction } from "./actions";
 
 type ChallengeDetailPageProps = {
   params: Promise<{ challengeSlug: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; join?: string }>;
 };
 
 const DETAIL_TABS = [
@@ -60,7 +62,8 @@ export default async function ChallengeDetailPage({
   searchParams,
 }: ChallengeDetailPageProps) {
   const { challengeSlug } = await params;
-  const { tab } = await searchParams;
+  const { tab, join } = await searchParams;
+  const session = await getSession();
 
   const challenge = await getPublicChallengeDetailBySlugFromDb(challengeSlug);
 
@@ -69,6 +72,23 @@ export default async function ChallengeDetailPage({
   }
 
   const activeTab = DETAIL_TABS.some((candidateTab) => candidateTab.key === tab) ? tab : "overview";
+  const joinAction = joinChallengeAction.bind(null, { challengeSlug: challenge.slug });
+  const joinMessage =
+    join === "joined"
+      ? "You joined this challenge."
+      : join === "joined_soft_locked"
+        ? "You joined this challenge. First participant joined: this challenge is now soft locked."
+        : join === "already_joined"
+          ? "You are already an active participant."
+          : join === "owner_cannot_join"
+            ? "Challenge creators cannot join their own challenge."
+            : join === "window_not_open"
+              ? "Joining is not open yet for this challenge."
+              : join === "window_closed"
+                ? "Joining is closed for this challenge."
+                : join === "ineligible"
+                  ? "This challenge is not eligible for joining."
+                  : null;
 
   return (
     <section className="space-y-6">
@@ -101,6 +121,35 @@ export default async function ChallengeDetailPage({
             </dd>
           </div>
         </dl>
+
+        <div className="mt-6 space-y-3">
+          {session?.user ? (
+            <form action={joinAction}>
+              <button
+                type="submit"
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                Join challenge
+              </button>
+            </form>
+          ) : (
+            <p className="text-sm text-slate-300">
+              <Link
+                className="font-medium text-indigo-300 hover:text-indigo-200"
+                href={`/sign-in?returnTo=/challenges/${challenge.slug}`}
+              >
+                Sign in
+              </Link>{" "}
+              to join this challenge.
+            </p>
+          )}
+
+          {joinMessage ? (
+            <p className="rounded-md border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200">
+              {joinMessage}
+            </p>
+          ) : null}
+        </div>
       </header>
 
       <nav
