@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { autoRemoveVerifierAssignmentForConflictInDb } from "@/lib/challenges/verifier-assignment-conflict-repository";
 
 import { validateExternalVideoUrl } from "./video-url-validation";
 
@@ -39,7 +40,10 @@ const SUBMITTABLE_CHALLENGE_STATUSES = [
   ChallengeStatus.ACTIVE_FULLY_LOCKED,
 ] as const;
 
-export function normalizeRunScorePayload(input: { primaryScore: number; notes?: string }): RunScorePayload {
+export function normalizeRunScorePayload(input: {
+  primaryScore: number;
+  notes?: string;
+}): RunScorePayload {
   const notes = input.notes?.trim();
 
   return notes
@@ -122,20 +126,32 @@ export async function submitLockedRunInDb(input: SubmitRunInput): Promise<Submit
     notes: input.notes,
   });
 
-  const submission = await prisma.runSubmission.create({
-    data: {
+  const submission = await prisma.$transaction(async (tx) => {
+    const createdSubmission = await tx.runSubmission.create({
+      data: {
+        challengeId: challenge.id,
+        userId: input.userId,
+        status: RunSubmissionStatus.SUBMITTED,
+        lockState: RunSubmissionLockState.LOCKED,
+        videoUrl: validatedVideo.normalizedUrl,
+        videoHost: validatedVideo.videoHost,
+        scorePayload,
+        submittedAt: now,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await autoRemoveVerifierAssignmentForConflictInDb({
+      tx,
       challengeId: challenge.id,
-      userId: input.userId,
-      status: RunSubmissionStatus.SUBMITTED,
-      lockState: RunSubmissionLockState.LOCKED,
-      videoUrl: validatedVideo.normalizedUrl,
-      videoHost: validatedVideo.videoHost,
-      scorePayload,
-      submittedAt: now,
-    },
-    select: {
-      id: true,
-    },
+      verifierUserId: input.userId,
+      triggeredBy: "run_submission",
+      triggerObjectId: createdSubmission.id,
+    });
+
+    return createdSubmission;
   });
 
   return {
