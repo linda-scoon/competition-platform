@@ -99,6 +99,20 @@ export default async function ChallengeDetailPage({
         </div>
         <p className="mt-2 text-sm text-slate-300">{challenge.shortDescription}</p>
 
+        <div className="mt-4">
+          {challenge.coverImageUrl ? (
+            <img
+              alt={`${challenge.title} cover image`}
+              className="h-56 w-full rounded-lg object-cover"
+              src={challenge.coverImageUrl}
+            />
+          ) : (
+            <div className="flex h-56 w-full items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-950/60 text-sm text-slate-400">
+              No approved cover image yet
+            </div>
+          )}
+        </div>
+
         <dl className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
           <div>
             <dt className="font-semibold uppercase tracking-wide text-slate-500">Creator</dt>

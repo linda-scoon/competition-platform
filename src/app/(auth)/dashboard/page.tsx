@@ -20,16 +20,31 @@ export default async function DashboardPage() {
       <p className="mt-3 text-slate-300">Signed in as {user.email}.</p>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400" href="/challenges/new">
+        <Link
+          className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+          href="/challenges/new"
+        >
           Create challenge draft
         </Link>
-        <Link className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800" href="/dashboard/verifier-eligibility">
+        <Link
+          className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800"
+          href="/dashboard/verifier-eligibility"
+        >
           Verifier eligibility request
+        </Link>
+        <Link
+          className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800"
+          href="/dashboard/media"
+        >
+          Media library
         </Link>
       </div>
 
       <form className="mt-8" action={signOutAction}>
-        <button className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium hover:bg-slate-800" type="submit">
+        <button
+          className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium hover:bg-slate-800"
+          type="submit"
+        >
           Sign out
         </button>
       </form>

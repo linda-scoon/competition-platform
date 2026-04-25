@@ -21,7 +21,10 @@ async function createUniqueDraftSlug(title: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const suffix = Math.random().toString(36).slice(2, 8);
     const candidate = `${base}-${suffix}`;
-    const existing = await prisma.challenge.findUnique({ where: { slug: candidate }, select: { id: true } });
+    const existing = await prisma.challenge.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
 
     if (!existing) {
       return candidate;
@@ -47,7 +50,9 @@ export async function ensureChallengeCreator(user: { id: string; email: string; 
   });
 }
 
-export async function createChallengeDraftInDb(input: { creatorUserId: string } & ChallengeDraftInput) {
+export async function createChallengeDraftInDb(
+  input: { creatorUserId: string } & ChallengeDraftInput,
+) {
   const submissionOpensAt = new Date("2100-01-01T00:00:00.000Z");
   const submissionClosesAt = new Date("2100-01-08T00:00:00.000Z");
   const slug = await createUniqueDraftSlug(input.title);
@@ -86,11 +91,15 @@ export async function getOwnedDraftBySlugFromDb(input: { slug: string; creatorUs
       shortDescription: true,
       longDescription: true,
       status: true,
+      coverImageId: true,
     },
   });
 }
 
-export async function getOwnedChallengeForEditingBySlugFromDb(input: { slug: string; creatorUserId: string }) {
+export async function getOwnedChallengeForEditingBySlugFromDb(input: {
+  slug: string;
+  creatorUserId: string;
+}) {
   return prisma.challenge.findFirst({
     where: {
       slug: input.slug,
@@ -107,6 +116,7 @@ export async function getOwnedChallengeForEditingBySlugFromDb(input: { slug: str
       longDescription: true,
       status: true,
       isPublic: true,
+      coverImageId: true,
     },
   });
 }
@@ -115,8 +125,12 @@ export async function updateOwnedDraftBySlugInDb(input: {
   slug: string;
   creatorUserId: string;
   values: ChallengeDraftInput;
+  coverImageId: string | null;
 }) {
-  const existing = await getOwnedDraftBySlugFromDb({ slug: input.slug, creatorUserId: input.creatorUserId });
+  const existing = await getOwnedDraftBySlugFromDb({
+    slug: input.slug,
+    creatorUserId: input.creatorUserId,
+  });
 
   if (!existing) {
     return null;
@@ -128,6 +142,7 @@ export async function updateOwnedDraftBySlugInDb(input: {
       title: input.values.title,
       shortDescription: input.values.shortDescription,
       longDescription: input.values.longDescription,
+      coverImageId: input.coverImageId,
     },
     select: {
       id: true,
@@ -136,6 +151,7 @@ export async function updateOwnedDraftBySlugInDb(input: {
       shortDescription: true,
       longDescription: true,
       status: true,
+      coverImageId: true,
     },
   });
 }
@@ -148,6 +164,7 @@ export async function submitChallengePublishForModerationInDb(input: {
   slug: string;
   creatorUserId: string;
   values: ChallengeDraftInput;
+  coverImageId: string | null;
 }): Promise<PublishModerationResult | null> {
   const editableChallenge = await getOwnedChallengeForEditingBySlugFromDb({
     slug: input.slug,
@@ -195,8 +212,12 @@ export async function submitChallengePublishForModerationInDb(input: {
   const moderationDecision = await moderateChallengeContent(input.values);
 
   if (moderationDecision.decision === "rejected") {
-    const isModerationUnavailable = moderationDecision.reasons.includes(MODERATION_UNAVAILABLE_REASON);
-    const moderationNotePrefix = isModerationUnavailable ? "[MODERATION_UNAVAILABLE]" : "[MODERATION_REJECTED]";
+    const isModerationUnavailable = moderationDecision.reasons.includes(
+      MODERATION_UNAVAILABLE_REASON,
+    );
+    const moderationNotePrefix = isModerationUnavailable
+      ? "[MODERATION_UNAVAILABLE]"
+      : "[MODERATION_REJECTED]";
     const moderationNote = `${moderationNotePrefix} ${moderationDecision.reasons.join(" ")}`;
 
     await prisma.challengeVersion.update({
@@ -242,6 +263,7 @@ export async function submitChallengePublishForModerationInDb(input: {
         visibilityState: ChallengeVisibilityState.PUBLIC,
         isPublic: true,
         lastApprovedVersionId: versionRecord.id,
+        coverImageId: input.coverImageId,
       },
     });
   });

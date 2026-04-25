@@ -2,6 +2,12 @@ type ChallengeDraftFormValues = {
   title: string;
   shortDescription: string;
   longDescription: string;
+  coverImageId: string | null;
+};
+
+type CoverImageOption = {
+  id: string;
+  status: string;
 };
 
 type ChallengeDraftFormProps = {
@@ -11,6 +17,7 @@ type ChallengeDraftFormProps = {
   secondarySubmitLabel?: string;
   secondarySubmitAction?: (formData: FormData) => void | Promise<void>;
   values: ChallengeDraftFormValues;
+  coverImageOptions: CoverImageOption[];
 };
 
 export function ChallengeDraftForm({
@@ -20,6 +27,7 @@ export function ChallengeDraftForm({
   secondarySubmitLabel,
   secondarySubmitAction,
   values,
+  coverImageOptions,
 }: ChallengeDraftFormProps) {
   return (
     <form action={action} className="mt-6 space-y-4">
@@ -60,9 +68,28 @@ export function ChallengeDraftForm({
         />
       </label>
 
+      <label className="block text-sm">
+        <span className="mb-1 block">Cover image asset</span>
+        <select
+          className="w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2"
+          defaultValue={values.coverImageId ?? ""}
+          name="coverImageId"
+        >
+          <option value="">No cover image</option>
+          {coverImageOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.id} ({option.status})
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="flex flex-wrap gap-3">
         {showPrimarySubmit ? (
-          <button className="rounded-md bg-indigo-500 px-4 py-2 font-medium text-white hover:bg-indigo-400" type="submit">
+          <button
+            className="rounded-md bg-indigo-500 px-4 py-2 font-medium text-white hover:bg-indigo-400"
+            type="submit"
+          >
             {submitLabel}
           </button>
         ) : null}
