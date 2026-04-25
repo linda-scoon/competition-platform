@@ -1,5 +1,9 @@
 import { ChallengeStatus, ChallengeVisibilityState, RunSubmissionStatus } from "@prisma/client";
 
+import {
+  reconcileChallengeLifecycleBySlugInDb,
+  reconcileDueChallengeLifecycleTransitionsInDb,
+} from "@/lib/challenges/state-transition-repository";
 import { prisma } from "@/lib/db/prisma";
 
 const PUBLIC_DIRECTORY_STATUSES = [
@@ -33,6 +37,8 @@ export type PublicChallengeDirectoryItem = {
 };
 
 export async function getPublicChallengeDirectoryFromDb(): Promise<PublicChallengeDirectoryItem[]> {
+  await reconcileDueChallengeLifecycleTransitionsInDb();
+
   const challenges = await prisma.challenge.findMany({
     where: PUBLIC_CHALLENGE_WHERE,
     orderBy: [{ submissionOpensAt: "asc" }, { createdAt: "desc" }],
@@ -115,6 +121,8 @@ function getPrimaryScore(scorePayload: unknown): number | null {
 export async function getPublicChallengeDetailBySlugFromDb(
   slug: string,
 ): Promise<PublicChallengeDetail | null> {
+  await reconcileChallengeLifecycleBySlugInDb({ challengeSlug: slug });
+
   const challenge = await prisma.challenge.findFirst({
     where: {
       ...PUBLIC_CHALLENGE_WHERE,
