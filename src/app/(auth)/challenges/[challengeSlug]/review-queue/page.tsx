@@ -95,7 +95,9 @@ export default async function ChallengeReviewQueuePage({
         <p className="mt-1 text-xs text-slate-400">
           {queue.viewState.access.isAdminAuthority
             ? "Admin authority access"
-            : "Assigned verifier access"}
+            : queue.viewState.access.isFallbackParticipant
+              ? "Fallback participant access"
+              : "Assigned verifier access"}
         </p>
       </header>
 
@@ -156,6 +158,12 @@ export default async function ChallengeReviewQueuePage({
       {queryParams.error === "decision_note_required" ? (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
           Reject and correction decisions require a decision note.
+        </p>
+      ) : null}
+
+      {queryParams.error === "self_verification_forbidden" ? (
+        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+          Fallback verification cannot be used on your own submission.
         </p>
       ) : null}
 

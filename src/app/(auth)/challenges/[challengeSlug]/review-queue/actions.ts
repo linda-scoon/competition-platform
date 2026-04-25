@@ -49,6 +49,10 @@ export async function claimReviewSubmissionAction(
     redirect(`${returnTo}?error=forbidden`);
   }
 
+  if (result.outcome === "SELF_VERIFICATION_FORBIDDEN") {
+    redirect(`${returnTo}?error=self_verification_forbidden`);
+  }
+
   redirect(`${returnTo}?error=submission_not_found`);
 }
 
@@ -133,6 +137,10 @@ async function verificationDecisionAction(
 
   if (result.outcome === "FORBIDDEN") {
     redirect(`${returnTo}?error=forbidden`);
+  }
+
+  if (result.outcome === "SELF_VERIFICATION_FORBIDDEN") {
+    redirect(`${returnTo}?error=self_verification_forbidden`);
   }
 
   redirect(`${returnTo}?error=submission_not_found`);

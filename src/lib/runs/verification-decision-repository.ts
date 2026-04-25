@@ -1,6 +1,8 @@
 import {
+  ChallengeParticipantState,
   ChallengeVerifierAssignmentStatus,
   NotificationType,
+  ParticipantVerificationVoteStatus,
   RunSubmissionStatus,
   VerificationDecisionMode,
   VerificationDecisionType,
@@ -25,6 +27,7 @@ export type RecordVerificationDecisionInput = {
 export type RecordVerificationDecisionResult =
   | { outcome: "SUBMISSION_NOT_FOUND" }
   | { outcome: "FORBIDDEN" }
+  | { outcome: "SELF_VERIFICATION_FORBIDDEN" }
   | { outcome: "NOTE_REQUIRED" }
   | { outcome: "DECISION_RECORDED" };
 
@@ -69,19 +72,48 @@ export async function recordVerificationDecisionInDb(
     return { outcome: "SUBMISSION_NOT_FOUND" };
   }
 
-  const activeAssignment = await prisma.challengeVerifierAssignment.findFirst({
-    where: {
-      challengeId: challenge.id,
-      userId: input.actorUserId,
-      status: ChallengeVerifierAssignmentStatus.ACTIVE,
-      endedAt: null,
-    },
-    select: {
-      id: true,
-    },
-  });
+  const [activeAssignment, activeFallbackVote, activeParticipant] = await Promise.all([
+    prisma.challengeVerifierAssignment.findFirst({
+      where: {
+        challengeId: challenge.id,
+        userId: input.actorUserId,
+        status: ChallengeVerifierAssignmentStatus.ACTIVE,
+        endedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    }),
+    prisma.participantVerificationVote.findFirst({
+      where: {
+        challengeId: challenge.id,
+        status: ParticipantVerificationVoteStatus.PASSED,
+      },
+      select: {
+        id: true,
+      },
+    }),
+    prisma.challengeParticipant.findFirst({
+      where: {
+        challengeId: challenge.id,
+        userId: input.actorUserId,
+        state: ChallengeParticipantState.ACTIVE,
+        leftAt: null,
+      },
+      select: {
+        id: true,
+      },
+    }),
+  ]);
 
-  if (!activeAssignment) {
+  const canFallbackVerify = Boolean(activeFallbackVote) && Boolean(activeParticipant);
+  const decisionMode = activeAssignment
+    ? VerificationDecisionMode.NORMAL_VERIFIER
+    : canFallbackVerify
+      ? VerificationDecisionMode.FALLBACK_PARTICIPANT
+      : null;
+
+  if (!decisionMode) {
     return { outcome: "FORBIDDEN" };
   }
 
@@ -113,13 +145,20 @@ export async function recordVerificationDecisionInDb(
       return { outcome: "FORBIDDEN" } as const;
     }
 
+    if (
+      decisionMode === VerificationDecisionMode.FALLBACK_PARTICIPANT &&
+      submission.userId === input.actorUserId
+    ) {
+      return { outcome: "SELF_VERIFICATION_FORBIDDEN" } as const;
+    }
+
     await tx.verificationDecision.create({
       data: {
         submissionId: submission.id,
         deciderUserId: input.actorUserId,
         decisionType: input.decisionType,
         note: trimmedNote,
-        mode: VerificationDecisionMode.NORMAL_VERIFIER,
+        mode: decisionMode,
       },
       select: {
         id: true,
@@ -151,6 +190,7 @@ export async function recordVerificationDecisionInDb(
           decisionType: input.decisionType,
           note: trimmedNote ?? null,
           decidedByUserId: input.actorUserId,
+          decisionMode,
         },
       },
       select: {

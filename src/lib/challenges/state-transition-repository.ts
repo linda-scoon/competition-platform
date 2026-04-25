@@ -7,6 +7,7 @@ import {
   RunSubmissionStatus,
 } from "@prisma/client";
 
+import { ensureFallbackVoteOpenedForChallengeInTx } from "@/lib/challenges/fallback-vote-repository";
 import { prisma } from "@/lib/db/prisma";
 
 const FULL_LOCK_SOURCE_STATUSES = [
@@ -167,6 +168,13 @@ async function reconcileChallengeLifecycleByIdInTx(input: {
         },
       },
     });
+
+    if (unresolvedReviewableRunsCount > 0) {
+      await ensureFallbackVoteOpenedForChallengeInTx({
+        challengeId: challenge.id,
+        tx: input.tx,
+      });
+    }
 
     if (unresolvedReviewableRunsCount < 1) {
       const finalizedUpdate = await input.tx.challenge.updateMany({

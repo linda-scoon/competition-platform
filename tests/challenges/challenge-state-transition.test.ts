@@ -12,14 +12,33 @@ vi.mock("@prisma/client", () => ({
     SUBMITTED: "SUBMITTED",
     UNDER_REVIEW: "UNDER_REVIEW",
   },
+  PlatformRoleType: {
+    SITE_ADMIN: "SITE_ADMIN",
+    SUPER_ADMIN: "SUPER_ADMIN",
+  },
+  ParticipantVerificationVoteStatus: {
+    OPEN: "OPEN",
+  },
+  ChallengeParticipantState: {
+    ACTIVE: "ACTIVE",
+  },
+  ChallengeVerifierAssignmentStatus: {
+    ACTIVE: "ACTIVE",
+  },
+  NotificationType: {
+    FALLBACK_VOTE_OPENED: "FALLBACK_VOTE_OPENED",
+  },
   AuditActorType: {
     SYSTEM: "SYSTEM",
   },
   AuditObjectType: {
     CHALLENGE: "CHALLENGE",
+    PARTICIPANT_VERIFICATION_VOTE: "PARTICIPANT_VERIFICATION_VOTE",
   },
   AuditActionType: {
     UPDATE: "UPDATE",
+    OPEN: "OPEN",
+    CLOSE: "CLOSE",
   },
 }));
 
@@ -60,6 +79,22 @@ function setupTx(input: {
     },
     runSubmission: {
       count: vi.fn().mockResolvedValue(input.unresolvedCount ?? 0),
+    },
+    challengeVerifierAssignment: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+    participantVerificationVote: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "vote_1" }),
+    },
+    challengeParticipant: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    roleAssignment: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    notification: {
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     auditLog: {
       create: vi.fn().mockResolvedValue({ id: "audit_1" }),
