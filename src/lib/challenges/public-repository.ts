@@ -118,6 +118,7 @@ export type PublicChallengeDetail = {
   submissionOpensAt: Date;
   submissionClosesAt: Date;
   creatorDisplayName: string;
+  creatorUsername: string;
   coverImageUrl: string | null;
   rulesSnapshot: unknown;
   scoringSnapshot: unknown;
@@ -154,6 +155,7 @@ export async function getPublicChallengeDetailBySlugFromDb(
       creator: {
         select: {
           displayName: true,
+          username: true,
         },
       },
       lastApprovedVersion: {
@@ -285,6 +287,7 @@ export async function getPublicChallengeDetailBySlugFromDb(
     submissionOpensAt: challenge.submissionOpensAt,
     submissionClosesAt: challenge.submissionClosesAt,
     creatorDisplayName: challenge.creator.displayName,
+    creatorUsername: challenge.creator.username,
     coverImageUrl:
       challenge.coverImage?.status === MediaAssetStatus.APPROVED
         ? challenge.coverImage.storageKey

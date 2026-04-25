@@ -73,7 +73,7 @@ describe("public media gating", () => {
       status: "PUBLISHED_UNLOCKED",
       submissionOpensAt: new Date("2026-01-01T00:00:00.000Z"),
       submissionClosesAt: new Date("2026-01-02T00:00:00.000Z"),
-      creator: { displayName: "Creator" },
+      creator: { displayName: "Creator", username: "creator" },
       lastApprovedVersion: {
         title: "Challenge",
         shortDescription: "Description",
