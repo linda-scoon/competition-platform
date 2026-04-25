@@ -135,6 +135,10 @@ export async function moderatePendingMediaAssetAction(formData: FormData) {
     redirect("/admin?error=media_not_found");
   }
 
+  if (result.outcome === "NOT_PENDING") {
+    redirect("/admin?error=media_not_pending");
+  }
+
   if (result.outcome === "NOTE_REQUIRED") {
     redirect("/admin?error=media_note_required");
   }

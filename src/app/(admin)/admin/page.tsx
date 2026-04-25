@@ -73,7 +73,11 @@ export default async function AdminVerifierRequestReviewPage({
       </div>
 
       {params?.approved === "1" ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+          role="status"
+        >
           Request approved.
           {params.membershipCreated === "1"
             ? " Verifier pool membership was created."
@@ -82,7 +86,11 @@ export default async function AdminVerifierRequestReviewPage({
       ) : null}
 
       {params?.rejected === "1" ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+          role="status"
+        >
           Request rejected.
           {params.membershipRevoked === "1"
             ? " Existing verifier pool membership was revoked."
@@ -91,73 +99,131 @@ export default async function AdminVerifierRequestReviewPage({
       ) : null}
 
       {params?.media === "approved" ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+          role="status"
+        >
           Media asset approved.
         </p>
       ) : null}
 
       {params?.media === "rejected" ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+          role="status"
+        >
           Media asset rejected.
         </p>
       ) : null}
 
       {params?.media === "removed" ? (
-        <p className="rounded-md border border-slate-600 bg-slate-900/80 p-3 text-sm text-slate-200">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-slate-600 bg-slate-900/80 p-3 text-sm text-slate-200"
+          role="status"
+        >
           Media asset removed.
         </p>
       ) : null}
 
       {params?.error === "forbidden" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           You do not have authority to review verifier requests.
         </p>
       ) : null}
 
       {params?.error === "invalid_request" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Invalid verifier request selection.
         </p>
       ) : null}
 
       {params?.error === "reject_note_required" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Reject decisions require notes.
         </p>
       ) : null}
 
       {params?.error === "request_not_found" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Request was not found.
         </p>
       ) : null}
 
       {params?.error === "request_not_pending" ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+          role="alert"
+        >
           Request is no longer pending review.
         </p>
       ) : null}
 
       {params?.error === "invalid_media_asset" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Invalid media asset selection.
         </p>
       ) : null}
 
       {params?.error === "invalid_media_decision" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Invalid media moderation decision.
         </p>
       ) : null}
 
       {params?.error === "media_not_found" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Media asset not found.
         </p>
       ) : null}
 
+      {params?.error === "media_not_pending" ? (
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+          role="alert"
+        >
+          Media asset is no longer pending moderation.
+        </p>
+      ) : null}
+
       {params?.error === "media_note_required" ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p
+          aria-live="assertive"
+          className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          role="alert"
+        >
           Reject and remove decisions require notes.
         </p>
       ) : null}

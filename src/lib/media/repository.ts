@@ -1,4 +1,11 @@
-import { MediaAssetStatus, MediaAssetType, MediaModerationDecisionType } from "@prisma/client";
+import {
+  AuditActionType,
+  AuditActorType,
+  AuditObjectType,
+  MediaAssetStatus,
+  MediaAssetType,
+  MediaModerationDecisionType,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 
@@ -87,6 +94,7 @@ export async function listPendingMediaAssetsForAdminFromDb() {
 
 export type ModerateMediaAssetResult =
   | { outcome: "MEDIA_NOT_FOUND" }
+  | { outcome: "NOT_PENDING" }
   | { outcome: "NOTE_REQUIRED" }
   | { outcome: "DECIDED"; nextStatus: MediaAssetStatus };
 
@@ -96,6 +104,8 @@ export async function moderateMediaAssetInDb(input: {
   decisionType: MediaModerationDecisionType;
   note: string;
 }): Promise<ModerateMediaAssetResult> {
+  const trimmedNote = input.note.trim();
+
   const nextStatus =
     input.decisionType === MediaModerationDecisionType.APPROVE ||
     input.decisionType === MediaModerationDecisionType.OVERRIDE_APPROVE
@@ -107,7 +117,7 @@ export async function moderateMediaAssetInDb(input: {
 
   if (
     (nextStatus === MediaAssetStatus.REJECTED || nextStatus === MediaAssetStatus.REMOVED) &&
-    !input.note
+    !trimmedNote
   ) {
     return { outcome: "NOTE_REQUIRED" };
   }
@@ -118,11 +128,16 @@ export async function moderateMediaAssetInDb(input: {
     },
     select: {
       id: true,
+      status: true,
     },
   });
 
   if (!mediaAsset) {
     return { outcome: "MEDIA_NOT_FOUND" };
+  }
+
+  if (mediaAsset.status !== MediaAssetStatus.PENDING_MODERATION) {
+    return { outcome: "NOT_PENDING" };
   }
 
   await prisma.$transaction(async (tx) => {
@@ -134,13 +149,35 @@ export async function moderateMediaAssetInDb(input: {
         status: nextStatus,
       },
     });
-
     await tx.mediaModerationDecision.create({
       data: {
         mediaAssetId: input.mediaAssetId,
         deciderUserId: input.deciderUserId,
         decisionType: input.decisionType,
-        note: input.note || null,
+        note: trimmedNote || null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.deciderUserId,
+        actorType: AuditActorType.USER,
+        objectType: AuditObjectType.MEDIA_ASSET,
+        objectId: input.mediaAssetId,
+        actionType:
+          input.decisionType === MediaModerationDecisionType.APPROVE
+            ? AuditActionType.APPROVE
+            : input.decisionType === MediaModerationDecisionType.REJECT
+              ? AuditActionType.REJECT
+              : input.decisionType === MediaModerationDecisionType.REMOVE
+                ? AuditActionType.REMOVE
+                : AuditActionType.OVERRIDE,
+        reason: "media_moderation_decision_recorded",
+        metadata: {
+          decisionType: input.decisionType,
+          nextStatus,
+          noteProvided: Boolean(trimmedNote),
+        },
       },
     });
   });
