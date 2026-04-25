@@ -7,8 +7,9 @@ import {
   ChallengeVisibilityState,
 } from "@prisma/client";
 
-import { prisma } from "@/lib/db/prisma";
+import { reconcileChallengeLifecycleBySlugInDb } from "@/lib/challenges/state-transition-repository";
 import { autoRemoveVerifierAssignmentForConflictInDb } from "@/lib/challenges/verifier-assignment-conflict-repository";
+import { prisma } from "@/lib/db/prisma";
 
 type JoinPublicChallengeInput = {
   challengeSlug: string;
@@ -27,6 +28,8 @@ export async function joinPublicChallengeInDb({
   challengeSlug,
   userId,
 }: JoinPublicChallengeInput): Promise<JoinPublicChallengeResult> {
+  await reconcileChallengeLifecycleBySlugInDb({ challengeSlug });
+
   const challenge = await prisma.challenge.findFirst({
     where: {
       slug: challengeSlug,

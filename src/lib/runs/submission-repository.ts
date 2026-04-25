@@ -6,8 +6,9 @@ import {
   RunSubmissionStatus,
 } from "@prisma/client";
 
-import { prisma } from "@/lib/db/prisma";
+import { reconcileChallengeLifecycleBySlugInDb } from "@/lib/challenges/state-transition-repository";
 import { autoRemoveVerifierAssignmentForConflictInDb } from "@/lib/challenges/verifier-assignment-conflict-repository";
+import { prisma } from "@/lib/db/prisma";
 
 import { validateExternalVideoUrl } from "./video-url-validation";
 
@@ -57,6 +58,8 @@ export function normalizeRunScorePayload(input: {
 }
 
 export async function submitLockedRunInDb(input: SubmitRunInput): Promise<SubmitRunResult> {
+  await reconcileChallengeLifecycleBySlugInDb({ challengeSlug: input.challengeSlug });
+
   const challenge = await prisma.challenge.findFirst({
     where: {
       slug: input.challengeSlug,

@@ -6,6 +6,7 @@ import {
   VerificationDecisionType,
 } from "@prisma/client";
 
+import { reconcileChallengeLifecycleByIdInDb } from "@/lib/challenges/state-transition-repository";
 import { prisma } from "@/lib/db/prisma";
 
 const DECIDABLE_SUBMISSION_STATUSES = [
@@ -159,6 +160,10 @@ export async function recordVerificationDecisionInDb(
 
     return { outcome: "DECISION_RECORDED" } as const;
   });
+
+  if (result.outcome === "DECISION_RECORDED") {
+    await reconcileChallengeLifecycleByIdInDb({ challengeId: challenge.id });
+  }
 
   return result;
 }
