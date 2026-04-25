@@ -1,8 +1,9 @@
-import { ChallengeStatus, ChallengeVisibilityState } from "@prisma/client";
+import { ChallengeStatus, ChallengeVersionStatus, ChallengeVisibilityState } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 
 import type { ChallengeDraftInput } from "./schema";
+import { MODERATION_UNAVAILABLE_REASON, moderateChallengeContent } from "./content-moderation";
 
 function toSlugBase(title: string) {
   return title
@@ -89,6 +90,27 @@ export async function getOwnedDraftBySlugFromDb(input: { slug: string; creatorUs
   });
 }
 
+export async function getOwnedChallengeForEditingBySlugFromDb(input: { slug: string; creatorUserId: string }) {
+  return prisma.challenge.findFirst({
+    where: {
+      slug: input.slug,
+      creatorUserId: input.creatorUserId,
+      status: {
+        in: [ChallengeStatus.DRAFT, ChallengeStatus.PUBLISHED_UNLOCKED],
+      },
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      shortDescription: true,
+      longDescription: true,
+      status: true,
+      isPublic: true,
+    },
+  });
+}
+
 export async function updateOwnedDraftBySlugInDb(input: {
   slug: string;
   creatorUserId: string;
@@ -116,4 +138,116 @@ export async function updateOwnedDraftBySlugInDb(input: {
       status: true,
     },
   });
+}
+
+type PublishModerationResult =
+  | { outcome: "approved"; moderationNotes: string[] }
+  | { outcome: "rejected"; moderationNotes: string[] };
+
+export async function submitChallengePublishForModerationInDb(input: {
+  slug: string;
+  creatorUserId: string;
+  values: ChallengeDraftInput;
+}): Promise<PublishModerationResult | null> {
+  const editableChallenge = await getOwnedChallengeForEditingBySlugFromDb({
+    slug: input.slug,
+    creatorUserId: input.creatorUserId,
+  });
+
+  if (!editableChallenge) {
+    return null;
+  }
+
+  const versionRecord = await prisma.$transaction(async (tx) => {
+    const latestVersion = await tx.challengeVersion.findFirst({
+      where: {
+        challengeId: editableChallenge.id,
+      },
+      orderBy: {
+        versionNumber: "desc",
+      },
+      select: {
+        versionNumber: true,
+      },
+    });
+
+    const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+
+    return tx.challengeVersion.create({
+      data: {
+        challengeId: editableChallenge.id,
+        versionNumber: nextVersionNumber,
+        title: input.values.title,
+        shortDescription: input.values.shortDescription,
+        longDescription: input.values.longDescription,
+        rulesSnapshot: {},
+        scoringSnapshot: {},
+        evidencePolicySnapshot: {},
+        status: ChallengeVersionStatus.PENDING_MODERATION,
+        createdByUserId: input.creatorUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  const moderationDecision = await moderateChallengeContent(input.values);
+
+  if (moderationDecision.decision === "rejected") {
+    const isModerationUnavailable = moderationDecision.reasons.includes(MODERATION_UNAVAILABLE_REASON);
+    const moderationNotePrefix = isModerationUnavailable ? "[MODERATION_UNAVAILABLE]" : "[MODERATION_REJECTED]";
+    const moderationNote = `${moderationNotePrefix} ${moderationDecision.reasons.join(" ")}`;
+
+    await prisma.challengeVersion.update({
+      where: {
+        id: versionRecord.id,
+      },
+      data: {
+        status: ChallengeVersionStatus.REJECTED,
+        moderationNotes: moderationNote,
+      },
+    });
+
+    return {
+      outcome: "rejected",
+      moderationNotes: moderationDecision.reasons,
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.challengeVersion.update({
+      where: {
+        id: versionRecord.id,
+      },
+      data: {
+        status: ChallengeVersionStatus.APPROVED,
+        moderationNotes: moderationDecision.reasons.join(" "),
+        approvedAt: new Date(),
+      },
+    });
+
+    await tx.challenge.update({
+      where: {
+        id: editableChallenge.id,
+      },
+      data: {
+        title: input.values.title,
+        shortDescription: input.values.shortDescription,
+        longDescription: input.values.longDescription,
+        status:
+          editableChallenge.status === ChallengeStatus.DRAFT
+            ? ChallengeStatus.PUBLISHED_UNLOCKED
+            : editableChallenge.status,
+        visibilityState: ChallengeVisibilityState.PUBLIC,
+        isPublic: true,
+        lastApprovedVersionId: versionRecord.id,
+      },
+    });
+  });
+
+  return {
+    outcome: "approved",
+    moderationNotes: moderationDecision.reasons,
+  };
 }

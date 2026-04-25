@@ -328,6 +328,7 @@ model ChallengeVersion {
   scoringSnapshot        Json
   evidencePolicySnapshot Json
   status                 ChallengeVersionStatus
+  moderationNotes        String?
   createdByUserId        String
   createdAt              DateTime               @default(now())
   approvedAt             DateTime?
